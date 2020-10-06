@@ -4,3 +4,71 @@ author: "Tessa Mendoza"
 date: "10/6/2020"
 output: html_document
 ---
+
+```{r}
+library(readxl)
+library(tidyverse)
+defense <- read_excel('cyclonesFootball2019.xlsx', sheet = "Defensive")
+offense <- read_excel('cyclonesFootball2019.xlsx', sheet = "Offensive")
+info <- read_excel('cyclonesFootball2019.xlsx', sheet = "Biography")
+```
+
+## Cleaning the Data
+```{r warning=FALSE}
+defClean <- defense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric)
+
+offClean <- offense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric)
+
+bioClean <- info %>%
+  mutate(Name = factor(Name)) %>%
+  separate(Height, c('Height_ft', 'Height_in'), sep ="-") %>%
+  mutate(Weight = as.numeric(Weight)) %>%
+  mutate(Height_ft = as.numeric(Height_ft)) %>%
+  mutate(Height_in = as.numeric(Height_in))
+```
+```{r}
+defClean
+offClean
+bioClean
+```
+
+
+## Tidying the Data
+
+1)
+```{r}
+defClean <- defClean %>%
+  pivot_longer(Tackles_Solo:Pass_PB, names_to = 'stat')
+defClean
+ggplot(defClean, aes(x = reorder(stat, -value), y = value)) + geom_bar(stat = 'identity') + coord_flip() + labs(x = 'Frequency', y = 'Stat', title = 'Frequency of Defensive Stats')
+```
+
+2)
+
+3)
+
+4)
+```{r}
+bioClean <- bioClean %>%
+  separate(Hometown, c('Hometown_City', 'Hometown_State'), sep =", ")
+head(bioClean)
+```
+
+5) 
+```{r}
+hometown <- bioClean %>%
+  group_by(Hometown_State) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+hometown
+ggplot(hometown, aes(x = reorder(Hometown_State, -count), y = count)) + geom_bar(stat = 'identity') + coord_flip() + labs(x = 'Number of Players', y = 'Hometown State', title = 'Number of ISU Football Players from Each State')
+```
+
