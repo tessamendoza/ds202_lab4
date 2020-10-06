@@ -4,3 +4,14 @@ author: "Tessa Mendoza"
 date: "10/6/2020"
 output: html_document
 ---
+
+```{r}
+library(readxl)
+defense <- read_excel('cyclonesFootball2019.xlsx', sheet = "Defensive")
+str(defense)
+offense <- read_excel('cyclonesFootball2019.xlsx', sheet = "Offensive")
+str(offense)
+info <- read_excel('cyclonesFootball2019.xlsx', sheet = "Biography")
+str(info)
+```
+
