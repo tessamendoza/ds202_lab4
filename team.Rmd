@@ -1,0 +1,6 @@
+---
+title: "Lab 4"
+author: "Tessa Mendoza"
+date: "10/6/2020"
+output: html_document
+---
