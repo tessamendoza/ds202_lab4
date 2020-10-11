@@ -51,10 +51,28 @@ defClean
 ggplot(defClean, aes(x = reorder(stat, -value), y = value)) + geom_bar(stat = 'identity') + coord_flip() + labs(x = 'Frequency', y = 'Stat', title = 'Frequency of Defensive Stats')
 ```
 
-2)
+2) 
+```{r}
+def2 <- defClean %>%
+  group_by(stat) %>%
+  summarise(sum = sum(value)) %>%
+  arrange(sum)
+ggplot(defClean, aes(x=value)) + geom_histogram(bins=15) + facet_wrap(~stat)
+def2
+```
+
+Naturally, there is a right-skewed distribution of each of the defensive statistics, as most players have 0 recorded statistics. The most variable distribution is solo tackles, where as number of interceptions and turnovers for a single player is not high. As shown in the table, inerceptions, forced fumbles, and recovered fumbles are the most rare defensive skills. 
 
 3)
+```{r}
+def3 <- defClean %>%
+  group_by(Opponent) %>%
+  filter(Opponent == "Iowa" | Opponent == "Notre Dame") %>%
+  filter(stat == "Tackles_Solo")
+ggplot(def3, aes(x = Name, y = value)) + geom_point() + coord_flip() + facet_wrap(~Opponent)
+```
 
+Based on this data, Iowa State had a better defensive performance against Notre Dame compared to Iowa. As you can see, many more solo tackles were made against Notre Dame than against Iowa. Mike Rose led the team with 5 solo tackles against ND, and Greg Eisworth led the team with 7 against Iowa. However, against Iowa, only two other players had three or more solo tackles. This is less than against Notre Dame, where six players had 3+ tackles. 
 4)
 ```{r}
 bioClean <- bioClean %>%
@@ -71,4 +89,85 @@ hometown <- bioClean %>%
 hometown
 ggplot(hometown, aes(x = reorder(Hometown_State, -count), y = count)) + geom_bar(stat = 'identity') + coord_flip() + labs(x = 'Number of Players', y = 'Hometown State', title = 'Number of ISU Football Players from Each State')
 ```
+
+By far, the largest number of players come from Iowa. Florida and Ohio are the second and third most common home state. Knowing Iowa State's football program, this makes sense - a lot of football talent comes from Florida, and the coaching staff at ISU came from Ohio!
+
+
+## Joining Data Frames
+
+1) 
+```{r}
+offClean <- offClean %>%
+  pivot_longer(Rushing_ATT:Passing_INT, names_to = 'stat')
+
+hometownD <- defClean %>%
+  distinct(Name) %>%
+  left_join(bioClean %>% select(Name, Hometown_State), by = c(Name = 'Name')) %>%
+  mutate(Side = "defense")
+
+hometownO <- offClean %>%
+  distinct(Name) %>%
+  left_join(bioClean %>% select(Name, Hometown_State), by = c(Name = 'Name')) %>%
+  mutate(Side = "offense")
+
+hometown2 <- hometownD %>%
+  full_join(hometownO, by = c(Name = "Name", Hometown_State = "Hometown_State", Side = "Side")) %>%
+  filter(!is.na(Hometown_State))
+
+ggplot(hometown2, aes(x = forcats::fct_infreq(Hometown_State), subgroup = Side, fill = Side)) + geom_bar(position = "stack") + coord_flip() + labs(x = 'Hometown State', y = 'Number of Players', title = 'Number of ISU Football Players from Each State by Position')
+```
+
+Again, it is clear that most of the players come from Iowa (on defense), and most come from Oklahoma or Florida on offense. Note: this sample was slightly affected by an issue where the biographical information was provided for the 2020 roster, not the 2019 roster. Therefore, several of the senior players from last season did not have hometown information in the new 'bioClean' dataset, so their information was removed. Also, players who played on both sides of the ball (typically due to special teams) were considered defensive.
+
+2) 
+```{r}
+brock <- offClean %>%
+  filter(Name == "Purdy, Brock") %>%
+  filter(stat == "Passing_YDS" | stat == "Rushing_YDS") %>%
+  group_by(stat, Opponent) %>%
+  summarize(value)
+
+ggplot(brock, aes(x = reorder(Opponent, value), y = value, fill = stat)) + geom_bar(stat = 'identity', position = 'stack') + coord_flip() + labs(x = "Opponent", y = "Total Yards", title = "Brock Purdy's Total Rushing and Passing Yards by Game")
+```
+
+In the 2019 season, Iowa State had wins against UNI (overtime), ULM, TCU, West Virginia, Texas Tech, Texas, and Kansas. Their losses were to Iowa, Baylor, Oklahoma State, Oklahoma, Kansas State, and Notre Dame. As we can see, in Brock Purdy's top six games with the most total yards (both passing and rushing yards), Iowa State had only one loss - in a one-touchdown defeat late against Oklahoma State. In addition, 5 of Iowa State's 6 losses occurred in Purdy's games with lowest total yards of offense. From this, we can see that Brock Purdy's performance, specifically in passing and rushing yards, significantly affects the outcome of the game.
+
+3) 
+```{r}
+defense18 <- read_excel('/Users/tmendoza/DS 202/ds202_lab4/cyclonesFootball2018.xlsx', sheet = "Defensive")
+str(defense)
+offense18 <- read_excel('/Users/tmendoza/DS 202/ds202_lab4/cyclonesFootball2018.xlsx', sheet = "Offensive")
+
+def18 <- defense18 %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_wider(Name:Turnover_FR, names_from = Opponent)
+
+solo18 <- aggregate(Tackles_Solo ~ Name, data = def18, FUN = sum)
+sacks18 <- aggregate(Tackles_Sack ~ Name, data = def18, FUN = sum)
+
+def19 <- defense %>%
+mutate(Name = factor(Name)) %>%
+rename(Opponent = Opponent_Opponent) %>%
+mutate(Opponent = factor(Opponent)) %>%
+mutate_if(is.character, as.numeric) %>%
+pivot_wider(Name:Turnover_FR, names_from = Opponent)
+
+solo19 <- aggregate(Tackles_Solo ~ Name, data = def19, FUN = sum)
+sacks19 <- aggregate(Tackles_Sack ~ Name, data = def19, FUN = sum)
+
+improveD <- solo18 %>%
+  full_join(sacks18, by = c(Name = 'Name')) %>%
+  inner_join(solo19, by = c(Name = "Name")) %>%
+  full_join(sacks19, by = c(Name = 'Name')) %>%
+  rename(solo18 = Tackles_Solo.x, sacks18 = Tackles_Sack.x, 
+         solo19 = Tackles_Solo.y, sacks19 = Tackles_Sack.y) %>%
+  group_by(Name) %>%
+  filter(solo19 > solo18 && sacks19 > sacks18)
+improveD
+```
+
+To analyze player improvements between 2018 and 2019, I chose to study defensive players and determined their performance based on solo tackles and sacks. Specifically, solo tackles represents a player's ability to wrap up a defender and make a standalone play. This is especially critical for defensive backs and requires sound fundamental tackling ability. On the other hand, sacks represent a more explosive play and is more common among defensive linemen. Therefore, these combined stats hopefully represent the common and uncommon plays for each position on the defense. With that in mind, I filtered out players who had a higher number of solo tackles AND sacks between 2018 and 2019. 7 players made this list: Azunna, Johnson, McDonald, Petersen, Rose, Uwazurike, and Vance. 
 
