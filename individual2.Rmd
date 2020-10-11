@@ -1,28 +1,162 @@
 ---
-title: "lab4"
+title: "Lab 4"
+author: "Becca Barrick"
+date: "10/11/2020"
 output: html_document
 ---
 
+Joining and Tidying of Cyclone football data
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tidyverse)
+library(dplyr)
+defense <- read_excel('lab4/ds202_lab4/cyclonesFootball2019.xlsx', sheet='Defensive')
+str(defense)
+offense <- read_excel('lab4/ds202_lab4/cyclonesFootball2019.xlsx', sheet='Offensive')
+str(offense)
+bio <- read_excel('lab4/ds202_lab4/cyclonesFootball2019.xlsx', sheet='Biography')
 ```
 
-## R Markdown
+#Cleaning the data
+```{r}
+defClean <- defense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+offClean <- offense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+bioClean <- bio %>%
+  mutate(Name = factor(Name)) %>%
+  separate(Height, c('Height_ft', 'Height_in', sep = '-')) %>%
+  mutate(Height_ft = as.numeric(Height_ft)) %>%
+  mutate(Height_in = as.numeric(Height_in)) %>%
+  mutate(Weight = as.numeric(Weight))
+         
+str(defClean)
+str(offClean)
+str(bioClean)
 ```
 
-## Including Plots
+# Tidying the Data
 
-You can also embed plots, for example:
-
+1. Reformat the defClean data frame into a tidy format using pivot_longer. The type of statistic (Tackles_Solo, Tackles_ASST, etc) is added as a new key column named stat.
 ```{r pressure, echo=FALSE}
-plot(pressure)
+defClean2 <- defClean %>%
+  pivot_longer(Tackles_Solo:Pass_PB, names_to = 'stat')
+str(defClean2)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+2. Compare the distributions of the defensive statistics. What defensive skills are rare?
+```{r}
+ggplot(defClean2, aes(x = stat, weight = value)) + geom_bar() + 
+  theme(text = element_text(size=9.5))
+```
+The most rare defensive skills are Turnover FF (forced fumble), Turnover FR (fumble recovered), and Turnover INT (interceptions). These skills are rare in comparison to solo tackles and assisted tackles which happen normally during every play. 
+
+
+3. Did ISU have better defense against Iowa or Notre Dame? Answer this question by creating a scatterplot with x- and y-axes being the number of solo tackles (of each player). A large number of solo tackles is an indicator of good defense.
+```{r}
+defClean3 <- defClean %>%
+  group_by(Opponent) %>%
+  filter(Opponent == "Iowa" | "Notre Dame") %>%
+  filter(stat == "Tackles_Solo")
+ggplot(defClean, aes(x = Name, weight = value) ) + geom_point()
+```
+
+
+4. Separate the Hometown column into two columns, namely the city and the state. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)
+```{r}
+bioClean2 <- bioClean %>%
+  separate(Hometown, c('City', 'State', sep = ','))
+head(bioClean2)  
+```
+
+
+5. How many players are there from each state?
+```{r}
+homestate <- bioClean2 %>%
+  group_by(State) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+homestate
+ggplot(homestate, aes(x = State, weight = count)) + geom_bar() + coord_flip()
+```
+Majority of players are from Iowa with Florida and Ohio coming in second. It makes sense that most players are from Iowa as many people desire to stay close to home when coming to college. Also, the ISU head coach Matt Campbell is from Ohio so he may be attracting players from his home state to play at Iowa State.
+
+# Joining the Data
+1. Find which states do the ISU defensive and offensive players come from. Create an appropriate summary.
+```{r}
+offClean <- offClean %>%
+  pivot_longer(Rushing_ATT:Passing_INT, names_to = 'stat')
+HomeDef <- defClean %>%
+  distinct(Name) %>%
+  left_join(bioClean2 %>% select(Name, State), by = c(Name = 'Name')) %>%
+  mutate(Side = "defense")
+HomeOff <- offClean %>%
+  distinct(Name) %>%
+  left_join(bioClean2 %>% select(Name, State), by = c(Name = 'Name')) %>%
+  mutate(Side = "offense")
+Home2 <- HomeDef %>%
+  full_join(HomeOff, by = c(Name = "Name", State = "State", Side = "Side")) %>%
+  filter(!is.na(State))
+ggplot(Home2, aes(x = forcats::fct_infreq(State), subgroup = Side, fill = Side)) + geom_bar() + coord_flip()
+```
+Most defensive players come from Iowa, Georgia and Ohio. Most offensive players come from Florida and Oklahoma. These states offer the highest amounts of players but the other states are just as valuable, all adding similar amounts of players.
+
+2. How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?
+```{r}
+brock2 <- offClean %>%
+  filter(Name == "Purdy, Brock") %>%
+  filter(stat == "Passing_TD" | stat == "Passing_INT") %>%
+  group_by(stat, Opponent) %>%
+  summarize(value)
+```
+Touchdown passes and intercepted passes imapct the Iowa State football team on opposite ends of the spectrum so it was interesting to look into Brock's numbers for these two statistics. A few games where he threw intercepted passes potentially led to the loss of the game for ISU. This makes sense because of how crucial accuracy is on the quarterback's end. 
+
+3. Which ISU player(s) made big progress over the last year? Compare the 2019 and the 2018 data here.
+```{r}
+defense18 <- read_excel('lab4/ds202_lab4/cyclonesFootball2018.xlsx', sheet = "Defensive")
+str(defense)
+offense18 <- read_excel('lab4//ds202_lab4/cyclonesFootball2018.xlsx', sheet = "Offensive")
+
+off18 <- offense18 %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_wider(Name:Receiving_YDS, names_from = Opponent)
+YDS18 <- aggregate(Receiving_YDS ~ Name, data = off18, FUN = sum)
+
+off19 <- offense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_wider(Name:Receiving_YDS, names_from = Opponent)
+YDS19 <- aggregate(Receiving_YDS ~ Name, data = off19, FUN = sum)
+
+progress <- YDS18 %>%
+  inner_join(YDS19, by = c(Name = "Name")) %>%
+  rename(YDS18 = Receiving_YDS.x, 
+         YDS19 = Receiving_YDS.y) %>%
+  group_by(Name) %>%
+  filter(YDS19 > YDS18)
+progress
+```
+I decided to analyze the offensive players and their receiving yards statistics. From 2018 to 2019 many players dramatically improved their receiving yards. The most notable improvement comes from Charlie Kolar where he improved his yards by 500%, from 134 to 697. Other players who made drastic improvements include Allen, Jones, and Milton.
+
+
+
+
+
+
+
+
+
