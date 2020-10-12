@@ -1,6 +1,6 @@
 ---
 title: "Lab 4"
-author: "Tessa Mendoza"
+author: "Tessa Mendoza and Becca Barrick"
 date: "10/6/2020"
 output: html_document
 ---
@@ -132,6 +132,16 @@ ggplot(brock, aes(x = reorder(Opponent, value), y = value, fill = stat)) + geom_
 
 In the 2019 season, Iowa State had wins against UNI (overtime), ULM, TCU, West Virginia, Texas Tech, Texas, and Kansas. Their losses were to Iowa, Baylor, Oklahoma State, Oklahoma, Kansas State, and Notre Dame. As we can see, in Brock Purdy's top six games with the most total yards (both passing and rushing yards), Iowa State had only one loss - in a one-touchdown defeat late against Oklahoma State. In addition, 5 of Iowa State's 6 losses occurred in Purdy's games with lowest total yards of offense. From this, we can see that Brock Purdy's performance, specifically in passing and rushing yards, significantly affects the outcome of the game.
 
+```{r}
+brock2 <- offClean %>%
+  filter(Name == "Purdy, Brock") %>%
+  filter(stat == "Passing_TD" | stat == "Passing_INT") %>%
+  group_by(stat, Opponent) %>%
+  summarize(value)
+```
+
+Purdy's performance when it comes to passing touchdown and passing interceptions stats obviously impact the team as well. In the games against Kansas, Louisiana Monroe, and Texas Purdy was able to execute at least 2 touchdown passes that led to a Cyclone win. One outlier was a game where Purdy threw 5 touchdown passes but the Cylclones ended up losing a high scoring game against Oklahoma. On the opposite end of the spectrum, Purdy throwing intercepted passes will lead to a struggle for the cyclones. In a game against Oklahoma State, Purdy threw 3 intercepted passes and the Cylones ended up losing that game. 
+
 3) 
 ```{r}
 defense18 <- read_excel('/Users/tmendoza/DS 202/ds202_lab4/cyclonesFootball2018.xlsx', sheet = "Defensive")
@@ -171,3 +181,30 @@ improveD
 
 To analyze player improvements between 2018 and 2019, I chose to study defensive players and determined their performance based on solo tackles and sacks. Specifically, solo tackles represents a player's ability to wrap up a defender and make a standalone play. This is especially critical for defensive backs and requires sound fundamental tackling ability. On the other hand, sacks represent a more explosive play and is more common among defensive linemen. Therefore, these combined stats hopefully represent the common and uncommon plays for each position on the defense. With that in mind, I filtered out players who had a higher number of solo tackles AND sacks between 2018 and 2019. 7 players made this list: Azunna, Johnson, McDonald, Petersen, Rose, Uwazurike, and Vance. 
 
+```{r}
+off18 <- offense18 %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_wider(Name:Receiving_YDS, names_from = Opponent)
+YDS18 <- aggregate(Receiving_YDS ~ Name, data = off18, FUN = sum)
+
+off19 <- offense %>%
+  mutate(Name = factor(Name)) %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent)) %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_wider(Name:Receiving_YDS, names_from = Opponent)
+YDS19 <- aggregate(Receiving_YDS ~ Name, data = off19, FUN = sum)
+
+progress <- YDS18 %>%
+  inner_join(YDS19, by = c(Name = "Name")) %>%
+  rename(YDS18 = Receiving_YDS.x, 
+         YDS19 = Receiving_YDS.y) %>%
+  group_by(Name) %>%
+  filter(YDS19 > YDS18)
+progress
+```
+
+I decided to analyze offensive players and their receiving yards statistics. This skill represents the players catching ability, outlining their individual accomplishment but also the accomplishment of the quarterback making an accurate pass. From 2018 to 2019 many players dramatically improved their receiving yards. The most notable improvement comes from Charlie Kolar where he improved his yards by 500%, from 134 to 697. Other players who made drastic improvements include Allen, Jones, and Milton.
